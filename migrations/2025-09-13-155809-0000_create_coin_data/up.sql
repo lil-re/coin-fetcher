@@ -1,0 +1,8 @@
+CREATE TABLE coin_data (
+   id INT AUTO_INCREMENT PRIMARY KEY,
+   coin_id INT NOT NULL,
+   price DOUBLE NOT NULL,
+   market_cap DOUBLE NOT NULL,
+   ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   FOREIGN KEY (coin_id) REFERENCES coins(id)
+);
