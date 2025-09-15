@@ -12,7 +12,7 @@ use std::num::NonZeroU32;
 use std::env;
 use chrono::{NaiveTime, Utc, TimeZone};
 use diesel::prelude::*;
-use diesel::mysql::MysqlConnection;
+use diesel::sqlite::SqliteConnection;
 
 use crate::models::coin_data::NewCoinData;
 
@@ -23,8 +23,8 @@ use crate::schemas::coin_data::coin_data::table as coin_data_table;
 const DEFAULT_PAGE: usize = 20;
 const DEFAULT_LIMIT: usize = 100;
 const DEFAULT_RATE: u64 = 2000;
-const DEFAULT_HOUR: u32 = 23;
-const DEFAULT_MINUTE: u32 = 0;
+const DEFAULT_HOUR: u32 = 20;
+const DEFAULT_MINUTE: u32 = 32;
 const DEFAULT_SECOND: u32 = 0;
 const DEFAULT_PRICE: f64 = 0.0;
 
@@ -49,14 +49,14 @@ struct ApiResponse {
     data: ApiCoinsList,
 }
 
-pub fn establish_connection() -> MysqlConnection {
+pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
     let url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    MysqlConnection::establish(&url)
+    SqliteConnection::establish(&url)
         .unwrap_or_else(|_| panic!("Error connecting to {}", url))
 }
 
-fn insert_or_update_coins(conn: &mut MysqlConnection, coin_list: &[ApiCoin]) {
+fn insert_or_update_coins(conn: &mut SqliteConnection, coin_list: &[ApiCoin]) {
     use diesel::sql_query;
 
     // Simple SQL string escape for single quotes
@@ -80,16 +80,16 @@ fn insert_or_update_coins(conn: &mut MysqlConnection, coin_list: &[ApiCoin]) {
     let query = format!(
         "INSERT INTO coins (uuid, symbol, name)
          VALUES {}
-         ON DUPLICATE KEY UPDATE
-            symbol = VALUES(symbol),
-            name = VALUES(name);",
+         ON CONFLICT(uuid) DO UPDATE SET
+            symbol = excluded.symbol,
+            name = excluded.name;",
         values
     );
 
     sql_query(query).execute(conn).expect("Insert coins failed");
 }
 
-fn insert_coin_data(conn: &mut MysqlConnection, coin_list: &[ApiCoin]) {
+fn insert_coin_data(conn: &mut SqliteConnection, coin_list: &[ApiCoin]) {
     for c in coin_list {
         let current_coin_id = coins_table.
             filter(coin_uuid.eq(&c.uuid))
@@ -195,4 +195,3 @@ async fn main() {
         println!("[job] Completed: inserted/updated {} coins", coin_list.len());
     }
 }
-
